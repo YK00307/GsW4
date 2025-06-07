@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Weekly Planner</title>
+    <style>
+        /* シンプルなデザイン */
+        .calendar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; }
+        .day-box { border: 1px solid #ccc; padding: 10px; min-height: 150px; }
+        .event-item { background: #e3f2fd; margin: 5px 0; padding: 5px; }
+        #weekly-summary { margin: 20px 0; padding: 15px; background: #f5f5f5; }
+    </style>
+</head>
+<body>
+    <div id="weekly-summary">
+        <h2>週の予定入力</h2>
+        <input type="text" id="event-title" placeholder="予定名">
+        <textarea id="event-comment" placeholder="コメント"></textarea>
+        <input type="datetime-local" id="event-time">
+        <button onclick="addEvent()">追加</button>
+    </div>
+
+    <div class="calendar" id="calendar"></div>
+
+<script>
+// ローカルストレージ操作関数
+const getEvents = () => JSON.parse(localStorage.getItem('events') || '{}');
+const saveEvents = (events) => localStorage.setItem('events', JSON.stringify(events));
+
+// カレンダー生成
+function generateCalendar() {
+    const calendar = document.getElementById('calendar');
+    const days = ['月', '火', '水', '木', '金', '土', '日'];
+    
+    days.forEach((day, index) => {
+        const date = new Date();
+        date.setDate(date.getDate() - date.getDay() + index + 1);
+        
+        const dayBox = document.createElement('div');
+        dayBox.className = 'day-box';
+        dayBox.innerHTML = `
+            <h3>${day} (${date.getDate()})</h3>
+            <div class="events" data-date="${date.toISOString().split('T')[0]}"></div>
+        `;
+        calendar.appendChild(dayBox);
+    });
+    
+    loadEvents();
+}
+
+// イベント追加機能
+function addEvent() {
+    const event = {
+        title: document.getElementById('event-title').value,
+        comment: document.getElementById('event-comment').value,
+        time: document.getElementById('event-time').value,
+        notified: false
+    };
+
+    const events = getEvents();
+    const eventDate = new Date(event.time).toISOString().split('T')[0];
+    
+    if (!events[eventDate]) events[eventDate] = [];
+    events[eventDate].push(event);
+    
+    saveEvents(events);
+    loadEvents();
+    checkNotifications();
+}
+
+// 通知チェック
+function checkNotifications() {
+    const events = getEvents();
+    const now = new Date();
+    
+    Object.entries(events).forEach(([date, events]) => {
+        events.forEach(event => {
+            const eventTime = new Date(event.time);
+            if (!event.notified && eventTime - now <= 600000) { // 10分前
+                new Notification('予定通知', { 
+                    body: `${event.title}\n${event.comment}`
+                });
+                event.notified = true;
+            }
+        });
+    });
+    
+    saveEvents(events);
+}
+
+// 初期化
+window.onload = () => {
+    generateCalendar();
+    setInterval(checkNotifications, 60000); // 1分ごとにチェック
+    Notification.requestPermission();
+};
+</script>
+</body>
+</html>
